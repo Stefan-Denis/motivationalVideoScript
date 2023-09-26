@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "target": "ES6",
+        "module": "NodeNext",
+        "strict": true,
+        "noImplicitAny": true,
+        "outDir": "./out"
+    },
+    "exclude": [
+        "node_modules",
+        "$"
+    ]
+}
