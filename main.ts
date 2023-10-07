@@ -16,16 +16,17 @@ import wait from './wait.js'
 
 // dotenv
 import { configDotenv } from 'dotenv'
-import { createLogUpdate } from 'log-update'
 configDotenv({ path: path.join(__dirname, 'config', '.env') })
 
 // Cleanup from last use
 async function cleanup() {
-    const dir: string = path.join(__dirname, 'app/output/temp')
-    const mp3dir: string = path.join(__dirname, 'app/output/temp/mp3')
+    const dir: string = path.join(__dirname, 'app/output') // Clear the output dir
+    const tempdir: string = path.join(__dirname, 'app/output/temp') // Make temp dir
+    const mp3dir: string = path.join(__dirname, 'app/output/temp/mp3') // Make mp3 folder
 
     async function main() {
         fs.emptyDirSync(dir)
+        fs.mkdirSync(tempdir)
         fs.mkdirSync(mp3dir)
     }
 
@@ -427,9 +428,42 @@ async function main(testingMode = false) {
         await addSubtitles()
         console.log('Added subtitles!')
 
+        console.log('Adding Text to Speech to video...')
+        async function addTTS() {
+            const inputVideo: string = '../app/output/temp/subtitled.mp4'
+            const outputVideo: string = `../app/output/complete${i}.mp4`
+            const ttsFiles: Array<string> = ['../app/output/temp/mp3/output_0.mp3',
+                '../app/output/temp/mp3/output_1.mp3',
+                '../app/output/temp/mp3/output_2.mp3'
+            ]
+
+            const ffmpegArgs = [
+                '-i', inputVideo,
+                '-i', ttsFiles[0],
+                '-i', ttsFiles[1],
+                '-i', ttsFiles[2],
+                '-filter_complex',
+                '[1:a]adelay=5000|5000[adelayed1];[2:a]adelay=10000|10000[adelayed2];[0:a][adelayed1][adelayed2]amix=inputs=3[aout]',
+                '-map', '[aout]',
+                '-c:v', 'copy',
+                outputVideo
+            ]
+
+            const ffmpeg = spawnSync('ffmpeg', ffmpegArgs as Array<string>, { encoding: 'utf-8' })
+
+            if (ffmpeg.stdout) {
+                console.log(ffmpeg.stdout)
+            }
+
+            if (ffmpeg.stderr) {
+                console.error(ffmpeg.stderr)
+            }
+        }
+        await addTTS()
+        console.log('Added Text to Speech to video...')
+
         // END OF PROCESSING
         // FINISHING UP
-
         // Mark combination as processed
         combination[3] = true
 
