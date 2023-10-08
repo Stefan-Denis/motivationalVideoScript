@@ -9,6 +9,7 @@ import util from 'util'
 
 // Custom
 import showLoadingAnimation, { stopLoadingAnimation } from './cli.js'
+import getMp3Duration from './getDuration.js'
 import crashManager from './crashManager.js'
 import { __dirname } from "./__dirname.js"
 import clear from './clear.js'
@@ -101,6 +102,9 @@ async function trimVideos() {
                         const process: ChildProcess = spawn('ffmpeg', [
                             '-y',  // Overwrite output files without asking
                             '-i', inputFilePath,  // Input file path
+
+                            // Remove Audio
+                            '-an',
 
                             // Specify the framerate
                             '-r', '60',
@@ -207,6 +211,7 @@ async function createScript(video1: string, video2: string, video3: string) {
     Don't mess up a large business and make the scripts so that the google tts engine can say them under 4.9 seconds or you will bankrupt a big business
     this is an example of a bad sentence "Embrace adversity, push through the pain, and conquer your fears." IT HAS 65 LETTERS, OUT OF THE 50 MAX
     THIS is ANOTHER bad sentence "Greatness is earned, never given." AS IT IS 33 LETTERS, NOT CLOSE TO 45 
+    REMEMBER USE THE THEME OF EACH VIDEO TO CREATE A SUITABLE SUBTITLE!
 
     1
     00:00:00,000 --> 00:00:05,000
@@ -283,24 +288,26 @@ async function main(testingMode = false) {
         console.log('Concatenating videos...')
         const concat = () => {
             return new Promise((resolve, reject) => {
-                const process = spawn('ffmpeg', [
-                    '-i', path.join(__dirname, `./app/output/temp/${firstVideo}`),
-                    '-i', path.join(__dirname, `./app/output/temp/${secondVideo}`),
-                    '-i', path.join(__dirname, `./app/output/temp/${thirdVideo}`),
-                    '-filter_complex', '[0:v][0:a][1:v][1:a][2:v][2:a]concat=n=3:v=1:a=1[outv][outa]',
-                    '-map', '[outv]',
-                    '-map', '[outa]',
-                    '-an', // Remove audio
-                    path.join(__dirname, './app/output/temp/concatenated.mp4')
-                ])
+                try {
+                    const process = spawn('ffmpeg', [
+                        '-i', path.join(__dirname, `./app/output/temp/${firstVideo}`),
+                        '-i', path.join(__dirname, `./app/output/temp/${secondVideo}`),
+                        '-i', path.join(__dirname, `./app/output/temp/${thirdVideo}`),
+                        '-filter_complex', '[0:v][1:v][2:v]concat=n=3:v=1:a=0[outv]',  // Removed audio references
+                        '-map', '[outv]',
+                        path.join(__dirname, './app/output/temp/concatenated.mp4')
+                    ])
 
-                process.on('close', (code) => {
-                    if (code === 0) {
-                        resolve(true)
-                    } else {
-                        reject(`ffmpeg process exited with code ${code}`)
-                    }
-                })
+                    process.on('close', (code) => {
+                        if (code === 0) {
+                            resolve(true)
+                        } else {
+                            reject(`ffmpeg process exited with code ${code}`)
+                        }
+                    })
+                } catch (error) {
+                    console.log(error)
+                }
             })
         }
         await concat()
@@ -429,24 +436,61 @@ async function main(testingMode = false) {
         console.log('Added subtitles!')
 
         console.log('Adding Text to Speech to video...')
-        async function addTTS() {
-            const inputVideo: string = '../app/output/temp/subtitled.mp4'
-            const outputVideo: string = `../app/output/complete${i}.mp4`
-            const ttsFiles: Array<string> = ['../app/output/temp/mp3/output_0.mp3',
+        async function createTTSFile() {
+            const ttsFiles: Array<string> = [
+                '../app/output/temp/mp3/output_0.mp3',
                 '../app/output/temp/mp3/output_1.mp3',
                 '../app/output/temp/mp3/output_2.mp3'
             ]
 
-            const ffmpegArgs = [
-                '-i', inputVideo,
+            // Write code between these 2 comments
+            let [duration0, duration1, duration2] = await Promise.all([
+                getMp3Duration(ttsFiles[0] as string),
+                getMp3Duration(ttsFiles[1] as string),
+                getMp3Duration(ttsFiles[2] as string)
+            ])
+
+            duration0 = Math.round(duration0 * 1000)
+            duration1 = Math.round(duration1 * 1000)
+            duration2 = Math.round(duration2 * 1000)
+
+            console.log(
+                'duration0: ' + duration0 + '\n' +
+                'duration1: ' + duration1 + '\n' +
+                'duration2: ' + duration2 + '\n'
+            )
+
+            // Calculate the delays
+            const delay0 = 5000 - duration0
+            const delay1 = 5000 - duration1
+            const delay2 = 5000 - duration2
+
+            // Working filter
+            /* const ffmpegArgs = [
                 '-i', ttsFiles[0],
                 '-i', ttsFiles[1],
                 '-i', ttsFiles[2],
                 '-filter_complex',
-                '[1:a]adelay=5000|5000[adelayed1];[2:a]adelay=10000|10000[adelayed2];[0:a][adelayed1][adelayed2]amix=inputs=3[aout]',
-                '-map', '[aout]',
-                '-c:v', 'copy',
-                outputVideo
+                `[0:a]adelay=0|0[a0];` +
+                `[1:a]adelay=${delay1}[a1];` +
+                `[2:a]adelay=${delay2}[a2];` +
+                `[a0][a1]concat=n=2:v=0:a=1[a01];` +
+                `[a01][a2]concat=n=2:v=0:a=1[aout]`,
+                '-map', '[aout]', '../app/output/temp/mp3/tts.mp3'
+            ] */
+
+            const ffmpegArgs = [
+                '-i', ttsFiles[0],
+                '-i', ttsFiles[1],
+                '-i', ttsFiles[2],
+                '-filter_complex',
+                `[0:a]adelay=0|0[a0];` +
+                `[1:a]adelay=${delay1}[a1];` +
+                `[2:a]adelay=${delay2}[a2];` +
+                `[a0][a1]concat=n=2:v=0:a=1[a01];` +
+                `[a01][a2]concat=n=2:v=0:a=1[aout]`,
+                '-map', '[aout]', '-b:a', '256k', // Setăm bitrate-ul aici
+                '../app/output/temp/mp3/tts.mp3'
             ]
 
             const ffmpeg = spawnSync('ffmpeg', ffmpegArgs as Array<string>, { encoding: 'utf-8' })
@@ -459,7 +503,32 @@ async function main(testingMode = false) {
                 console.error(ffmpeg.stderr)
             }
         }
-        await addTTS()
+
+        async function applyTTS() {
+            const inputVideo = '../app/output/temp/subtitled.mp4'
+            const ttsFile = '../app/output/temp/mp3/tts.mp3'
+
+            const ffmpegArgs = [
+                '-i', inputVideo,
+                '-i', ttsFile,
+                '-c:v', 'copy', // Copy video stream
+                '-map', '0:v:0', // Map video from input
+                '-map', '1:a:0', // Map audio from tts.mp3
+                '-shortest', // End the output when the shortest input ends
+                '../app/output/output.mp4'
+            ]
+
+            const result = spawnSync('ffmpeg', ffmpegArgs)
+
+            if (result.error) {
+                console.error('Error:', result.error)
+            } else {
+                console.log('TTS applied successfully!')
+            }
+        }
+
+        await createTTSFile()
+        await applyTTS()
         console.log('Added Text to Speech to video...')
 
         // END OF PROCESSING
@@ -503,9 +572,9 @@ const testingMode = process.argv.includes('--test')
 // loads combinations
 // generates subtitles based on combinations
 // Update subtitle length according to each tts clip
+// add subtitles to video
 
 //TODO:
-//* add subtitles to video
 //* add tts
 
 main(testingMode)
