@@ -465,20 +465,6 @@ async function main(testingMode = false) {
             const delay1 = 5000 - duration1
             const delay2 = 5000 - duration2
 
-            // Working filter
-            /* const ffmpegArgs = [
-                '-i', ttsFiles[0],
-                '-i', ttsFiles[1],
-                '-i', ttsFiles[2],
-                '-filter_complex',
-                `[0:a]adelay=0|0[a0];` +
-                `[1:a]adelay=${delay1}[a1];` +
-                `[2:a]adelay=${delay2}[a2];` +
-                `[a0][a1]concat=n=2:v=0:a=1[a01];` +
-                `[a01][a2]concat=n=2:v=0:a=1[aout]`,
-                '-map', '[aout]', '../app/output/temp/mp3/tts.mp3'
-            ] */
-
             const ffmpegArgs = [
                 '-i', ttsFiles[0],
                 '-i', ttsFiles[1],
