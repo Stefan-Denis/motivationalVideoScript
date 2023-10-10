@@ -415,7 +415,7 @@ async function main(testingMode = false) {
                         },
                         "voice": {
                             "languageCode": "en-US",
-                            "name": voice
+                            "name": voice as string
                         }
                     }
 
