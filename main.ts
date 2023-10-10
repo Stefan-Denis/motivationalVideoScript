@@ -2,6 +2,7 @@
 import { TextToSpeechClient } from '@google-cloud/text-to-speech'
 import { spawn, ChildProcess, spawnSync } from 'child_process'
 import { execSync } from 'child_process'
+import internal from 'stream'
 import OpenAI from "openai"
 import fs from 'fs-extra'
 import path from 'path'
@@ -16,249 +17,299 @@ import clear from './clear.js'
 import wait from './wait.js'
 
 // dotenv
-import { configDotenv } from 'dotenv'
-configDotenv({ path: path.join(__dirname, 'config', '.env') })
+import { DotenvConfigOptions, configDotenv } from 'dotenv'
+import { ChatCompletion } from 'openai/resources/chat/index.mjs'
+configDotenv({ path: path.join(__dirname, 'config', '.env') }) as DotenvConfigOptions
 
 // Cleanup from last use
-async function cleanup() {
-    const dir: string = path.join(__dirname, 'app/output') // Clear the output dir
-    const tempdir: string = path.join(__dirname, 'app/output/temp') // Make temp dir
-    const mp3dir: string = path.join(__dirname, 'app/output/temp/mp3') // Make mp3 folder
+async function cleanup(): Promise<void> {
 
-    async function main() {
-        fs.emptyDirSync(dir)
-        fs.mkdirSync(tempdir)
-        fs.mkdirSync(mp3dir)
+    // Directories specified for deletion
+    const inputDir: string = path.join(__dirname as string, 'app' as string, 'input' as string) // used for renaming all the files
+    const dir: string = path.join(__dirname as string, 'app' as string, 'output' as string) // Make temp dir
+    const tempdir: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'temp' as string) // Make temp dir
+    const mp3dir: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'temp' as string, 'mp3' as string) // Make mp3 folder
+
+    async function renameClips(): Promise<void> {
+        const files = fs.readdirSync(inputDir)
+
+        files.forEach((file, index) => {
+            const oldPath = path.join(inputDir, file)
+            const newPath = path.join(inputDir, `${index + 1}${path.extname(file)}`)
+            fs.renameSync(oldPath, newPath)
+        })
     }
 
-    async function UI() {
-        console.log('🗑️　Cleaning up from last use: ')
-        showLoadingAnimation(`Deleting Directory Contents Of: ${dir}`, 3000)
-        await wait(3000)
-        clear()
+    //TODO: rename files from input
+    async function main(): Promise<void> {
+        await renameClips()
+        fs.emptyDirSync(dir) as void
+        fs.mkdirSync(tempdir) as void
+        fs.mkdirSync(mp3dir) as void
     }
 
-    await main()
-    await UI()
+    async function UI(): Promise<void> {
+        console.log('🗑️　Cleaning up from last use: ') as void
+        showLoadingAnimation(`Deleting Directory Contents Of: ${tempdir}`, 3000) as Promise<void>
+        await wait(3000) as void
+        clear() as Promise<void>
+    }
+
+    await main() as void
+    await UI() as void
 }
 
 // Create all combinations of videos possible
-async function createCombinations() {
-    function main() {
-        const inputDir: string = path.join(__dirname, 'app', 'input')
+async function createCombinations(): Promise<void> {
+    function main(): void {
 
-        function getVideoFiles(dir: string): string[] {
-            return fs.readdirSync(dir).filter(file => path.extname(file) === '.mp4')
+        // This is the video directory where the user places the files for video creation
+        // Must contain at least 3 files
+        // Reccomended to not have more than 4 to 5 files due to long processing times
+        const inputDir: string = path.join(__dirname as string, 'app' as string, 'input' as string)
+
+        function getVideoFiles(dir: string): Array<string> {
+            return fs.readdirSync(dir as string).filter(file => path.extname(file) === '.mp4') as Array<string>
         }
 
-        function generateCombinations(files: string[]): Array<[string, string, string, boolean]> {
-            const permutations: Array<[string, string, string, boolean]> = [] // Modify the type to include the boolean value
-            const len: number = files.length
+        // Generates all possible combinations that you can create with the videos you fed it
+        // Max 3 clips per video
+        // can generate from 9 videos to as many as you want
+        function generateCombinations(files: Array<string>): Permutations {
 
-            for (let i = 0; i < len; i++) {
-                for (let j = 0; j < len; j++) {
-                    for (let k = 0; k < len; k++) {
-                        if (i !== j && j !== k && k !== i) {
-                            permutations.push([files[i], files[j], files[k], false])
+            // Check types.d.ts for the type
+            // Permutations type contains all the types of data it needs to store
+            const permutations: Permutations = []
+            const len: number = files.length as number
+
+            // Loop that generates the combinations
+            // Is created to make combinations of 3 videos concatenated
+            for (let i: number = 0; i < len; i++) {
+                for (let j: number = 0; j < len; j++) {
+                    for (let k: number = 0; k < len; k++) {
+                        if (i as number !== j as number && j as number !== k as number && k as number !== i as number) {
+                            permutations.push([files[i] as string, files[j] as string, files[k] as string, false as boolean]) as number
                         }
                     }
                 }
             }
 
-            return permutations
+            return permutations as Permutations
         }
 
-        const videoFiles: string[] = getVideoFiles(inputDir)
-        const combinations: Array<[string, string, string, boolean]> = generateCombinations(videoFiles) // Correct type
+        const videoFiles: Array<string> = getVideoFiles(inputDir as string) as Array<string>
+        const combinations: Permutations = generateCombinations(videoFiles as Array<string>) // Correct type
 
-        const combinationsJSON: string = JSON.stringify(combinations, null, 2)
-        const combinationsFilePath: string = path.join(__dirname, 'config', 'combinations.json')
+        const combinationsJSON: string = JSON.stringify(combinations as Permutations, null as null, 2 as number) as string
+        const combinationsFilePath: string = path.join(__dirname as string, 'config' as string, 'combinations.json' as string) as string
 
-        fs.writeFileSync(combinationsFilePath, combinationsJSON)
+        fs.writeFileSync(combinationsFilePath as string, combinationsJSON as string) as void
     }
 
-    async function UI() {
-        showLoadingAnimation(`Generating All Possible Combinations`, 2500)
-        await wait(2500)
+    async function UI(): Promise<void> {
+        showLoadingAnimation(`Generating All Possible Combinations`, 2500) as Promise<void>
+        await wait(2500) as void
     }
 
-    main()
-    await UI()
+    main() as void
+    await UI() as void
 }
 
-async function trimVideos() {
+async function trimVideos(): Promise<void> {
     async function main(): Promise<void> {
         try {
-            const files: string[] = fs.readdirSync(path.join(__dirname, 'app', 'input'))
+            const files: Array<string> = fs.readdirSync(path.join(__dirname as string, 'app' as string, 'input' as string))
 
-            for (const file of files) {
-                if (file.endsWith('.mp4')) {
-                    UI.add('Trimming: ' + file)
+            for (const file of files as Array<string>) {
+                if (file.endsWith('.mp4') as boolean) {
+                    UI.add('Trimming: ' as string + file as string)
 
-                    await new Promise<void>((resolve, reject) => {
-                        const inputFilePath: string = path.join(__dirname, 'app', 'input', file)
-                        const outputFilePath: string = path.join(__dirname, 'app', 'output', 'temp', file)
+                    await new Promise<void>((resolve: (value: void | PromiseLike<void>) => void, reject: (reason?: any) => void) => {
+
+                        // Input paths for the base videos
+                        // will be trimmed
+                        const inputFilePath: string = path.join(__dirname as string, 'app' as string, 'input' as string, file as string)
+
+                        // output path for the videos which will be stored temporarily inside `temp` folder
+                        const outputFilePath: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'temp' as string, file as string)
 
                         const process: ChildProcess = spawn('ffmpeg', [
-                            '-y',  // Overwrite output files without asking
-                            '-i', inputFilePath,  // Input file path
+                            '-y' as string,  // Overwrite output files without asking
+                            '-i' as string, inputFilePath as string,  // Input file path
 
                             // Remove Audio
-                            '-an',
+                            '-an' as string,
 
                             // Specify the framerate
-                            '-r', '60',
+                            '-r' as string, '60' as string,
 
                             // Specify video codec (H.264), resolution (720x1280), and framerate (30 fps)
-                            '-c:v', 'libx264',
-                            '-vf', 'scale=720:1280',
-                            '-r', '30',
+                            '-c:v' as string, 'libx264' as string,
+                            '-vf' as string, 'scale=720:1280' as string,
 
                             // Use a preset for libx264 for speed/quality trade-off
-                            '-preset', 'medium',
+                            '-preset' as string, 'medium' as string,
 
                             // Set a target video bitrate (adjust the value as needed)
-                            '-b:v', '2M',
+                            '-b:v' as string, '2M' as string,
 
                             // Set the Constant Rate Factor for quality (adjust the value as needed)
-                            '-crf', '20',
+                            '-crf' as string, '20' as string,
 
                             // Set the pixel format to yuv420p
-                            '-pix_fmt', 'yuv420p',
+                            '-pix_fmt' as string, 'yuv420p' as string,
 
                             // Specify audio codec (AAC) and sample rate (44100 Hz)
-                            '-c:a', 'aac',
-                            '-ar', '44100',
+                            '-c:a' as string, 'aac' as string,
+                            '-ar' as string, '44100' as string,
 
                             // Specify start time (0 seconds) and duration (5 seconds)
-                            '-ss', '0',
-                            '-t', '5',
+                            '-ss' as string, '0' as string,
+                            '-t' as string, '5' as string,
 
                             // Output file path
-                            outputFilePath
+                            outputFilePath as string
                         ])
 
                         process.on('close', (code: number) => {
                             if (code === 0) {
-                                resolve()
+                                resolve() as void
                             } else {
-                                reject(new Error(`FFmpeg process exited with code ${code}`))
+                                reject(new Error(`FFmpeg process exited with code ${code}` as string) as Error) as void
                             }
-                        })
-                    })
-
-                    UI.remove()
+                        }) as ChildProcess
+                    }) as void
+                    UI.remove() as void
                 }
             }
-
         } catch (err) {
-            console.log('\n')
-            console.error('GENERIC ERROR MESSAGE: expected directory not found: ' + path.join(__dirname, 'app', 'input'))
-            console.error('ACTUAL ERROR MESSAGE: ' + err)
-            console.log('\n')
+            console.log('\n') as void
+            console.error('GENERIC ERROR MESSAGE: expected directory not found: ' as string + path.join(__dirname as string, 'app' as string, 'input' as string) as string) as void
+            console.error('ACTUAL ERROR MESSAGE: ' + err) as void
+            console.log('\n') as void
         }
     }
 
+    // UI library
+    // Experimenting with object based ui instead of function based
     const UI: UI = {
         add: (message: string): void => {
-            showLoadingAnimation(message, 2_147_483_647)
+            showLoadingAnimation(message, 2_147_483_647) as Promise<void>
         },
 
         remove: (): void => {
-            stopLoadingAnimation()
+            stopLoadingAnimation() as void
         }
     }
 
-    await main()
+    await main() as void
 }
 
-async function getVideoTheme(videos: string[]): Promise<string[]> {
-    const comments: string[] = []
+async function getVideoTheme(videos: Array<string>): Promise<Array<string>> {
+    const comments: Array<string> = []
 
-    for (let i = 0; i < videos.length; i++) {
-        const video = videos[i]
-        const mediaInfo = spawn('mediainfo', [path.join(__dirname, 'app', 'input', video)])
-        let metadata = ''
+    for (let i: number = 0; i < videos.length; i++) {
+        const video: string = videos[i]
+        const mediaInfo: ChildProcess = spawn('mediainfo', [path.join(__dirname as string, 'app' as string, 'input' as string, video as string) as string])
+        let metadata: string = ''
 
-        await new Promise<void>((resolve) => {
-            mediaInfo.stdout.on('data', (data) => {
-                metadata += data.toString()
-            })
+        await new Promise<void>((resolve: (value: void | PromiseLike<void>) => void) => {
+            mediaInfo.stdout!.on('data', (data: string) => {
+                metadata += data.toString() as string
+            }) as internal.Readable
 
-            mediaInfo.on('close', () => {
-                const commentMatch = metadata.match(/Comment\s*:\s*(.*)/i)
+            mediaInfo.on('close' as string, () => {
+                const commentMatch: RegExpMatchArray | null = metadata.match(/Comment\s*:\s*(.*)/i)
                 if (commentMatch && commentMatch[1]) {
-                    comments.push(commentMatch[1] as string)
+                    comments.push(commentMatch[1] as string) as number
                 } else {
-                    console.log(i + ' No comment found for this video.')
+                    console.log(i + ' No comment found for this video.' as string) as void
                 }
-                resolve() // Resolve the promise once comments are processed
+                resolve() as void // Resolve the promise once comments are processed
             })
         })
     }
 
-    return comments
+    return comments as Array<string>
 }
 
-async function createScript(video1: string, video2: string, video3: string) {
-    const prompt: string = `Generate a concise .srt script for a motivational video with three 5-second clips (max 15 seconds total). The script should align with a text-to-speech engine. Avoid long pauses or filler text. Keep it impactful and provide assertive, red-pill style motivation inspired by the following themes:
+async function createScript(video1: string, video2: string, video3: string): Promise<string> {
 
-    Video 1 Theme: ${video1}
-    Video 2 Theme: ${video2}
-    Video 3 Theme: ${video3}
+    // The prompt
+    // Uses its own custom type
+    // Check types.d.ts
+    const prompt: Prompt = `Generate a concise .srt script for a motivational video with three 5-second clips (max 15 seconds total). Say something in the first subtitle that will HOOK the viewer to watch to the end. Use all the tricks in the book to get the viewer to watch to the end
+    
+    Make the script readable by humans. Provide assertive, red-pill style motivation:
 
-    Each clip should be exactly 15 seconds long. Ensure that the script fits within this time frame and make sure that the letter count does not exceed 50 words but try to be above 45 and between 45 - 50.
-    Don't mess up a large business and make the scripts so that the google tts engine can say them under 4.9 seconds or you will bankrupt a big business
-    this is an example of a bad sentence "Embrace adversity, push through the pain, and conquer your fears." IT HAS 65 LETTERS, OUT OF THE 50 MAX
-    THIS is ANOTHER bad sentence "Greatness is earned, never given." AS IT IS 33 LETTERS, NOT CLOSE TO 45 
-    REMEMBER USE THE THEME OF EACH VIDEO TO CREATE A SUITABLE SUBTITLE!
+    Video 1 Theme: ${video1 as string}
+    Video 2 Theme: ${video2 as string}
+    Video 3 Theme: ${video3 as string}
+
+    Each clip should be exactly 15 seconds long. Ensure that the script fits within this time frame and make sure that the character count does not exceed 55 characters but try to be above 45 and between 45 - 55 characters.
+
+    you must respect the word limit with your life, failure to respect this limit can bring many consequences that we do not want to face. If a quote or subtitle is SMALLER than 45 characters but LONGER than 55 we will both face the consequences. IF I DARE catch YOU somehow making quotes less than 45 characters or more than 55 characters, oh boy I don't want to face the consequences alongside you. You DEPEND on generating THIS CORRECTLY.
 
     1
     00:00:00,000 --> 00:00:05,000
-    <generate text dont exceed 50 letters (45 - 50 letters range try to aim for) and keep it one line>
+    <generate text here and use the video 1 themes for it and keep it one line MAX 55 CHARACTERS>
 
     2
     00:00:05,000 --> 00:00:10,000
-    <generate text dont exceed 50 letters (45 - 50 letters range try to aim for) and keep it one line>
+    <generate text here and use the video 2 themes for it and keep it one line MAX 55 CHARACTERS>
 
     3
     00:00:10,000 --> 00:00:15,000
-    <generate text dont exceed 50 letters (45 - 50 letters range try to aim for) and keep it one line>
+    <generate text here and use the video 3 themes for it and keep it one line MAX 55 CHARACTERS>
     `
 
     const openai = new OpenAI({
-        apiKey: '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'
+        apiKey: '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' as string
     })
 
-    const completion = await openai.chat.completions.create({
-        messages: [{ role: "system", content: prompt }],
-        model: "gpt-3.5-turbo",
+    const completion: ChatCompletion = await openai.chat.completions.create({
+        messages: [{ role: 'system', content: prompt }] as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+        model: 'gpt-3.5-turbo' as string,
     })
 
-    const generatedScript = completion.choices[0].message.content
+    const generatedScript: string = completion.choices[0].message.content as string
 
-    return generatedScript // Return the generated script
+    // Return the generated script
+    return generatedScript as string
 }
 
+async function playVideo(videoPath: string) {
+    const ffplay = spawn('ffplay', [videoPath])
+
+    ffplay.on('error', (err) => {
+        console.error('Error starting ffplay:', err)
+    })
+
+    ffplay.on('close', (code) => {
+        console.log(`ffplay process exited with code ${code}`)
+    })
+
+    // Set a timeout to kill the process after 16 seconds
+    setTimeout(() => {
+        ffplay.kill('SIGINT') // This sends the interrupt signal to terminate the process
+    }, 16000) // 16 seconds in milliseconds
+}
+
+// The main function
+// all scripts execute here
+// has a testing mode built in
 async function main(testingMode = false) {
     // Crash manager START
-    await crashManager('start')
-
-    // Clean up the directory
-    await cleanup()
-    console.log('✅ Finished cleanup')
+    await crashManager('start') as void
 
     // begin the process of creating the video combinations:
-    await createCombinations()
-    console.log('✅ Generated all video combinations')
-
-    await trimVideos()
-    console.log('✅ Trimmed all the videos')
+    await createCombinations() as void
+    console.log('✅ Generated all video combinations') as void
 
     // Grab video theme
-    const videos: string[] = fs.readdirSync(path.join(__dirname, 'app', 'input'))
-    const themes: string[] = await getVideoTheme(videos)
-    console.log('✅ Theme retrieved from each video')
+    const videos: Array<string> = fs.readdirSync(path.join(__dirname as string, 'app' as string, 'input' as string) as string) as Array<string>
+    const themes: Array<string> = await getVideoTheme(videos) as Array<string>
+    console.log('✅ Theme retrieved from each video' as string) as void
 
     // Load combinations
     const combinationsPath = path.join(__dirname, 'config', 'combinations.json')
@@ -272,21 +323,32 @@ async function main(testingMode = false) {
     for (let i = currentIndex; i < endIndex; i++) {
         const startTime = Date.now() // Record the start time
 
+        // Clean up the directory
+        await cleanup() as void
+        console.log('✅ Finished cleanup') as void
+
+        await trimVideos() as void
+        console.log('✅ Trimmed all the videos') as void
+
         const combination = combinations[i]
         const [firstVideo, secondVideo, thirdVideo] = combination.slice(0, 3)
 
         console.log('\n')
         console.log(`Processing combination ${(i + 1)}:`, combinations[i])
 
+        console.log('Video theme 1:', themes[(Number(firstVideo.slice(0, -4))) - 1])
+        console.log('Video theme 2:', themes[(Number(secondVideo.slice(0, -4))) - 1])
+        console.log('Video theme 3:', themes[(Number(thirdVideo.slice(0, -4))) - 1])
+
         // Create script with AI 
         console.log('Generating script...')
-        const generatedScript = await createScript(firstVideo, secondVideo, thirdVideo)
+        const generatedScript = await createScript(themes[(Number(firstVideo.slice(0, -4))) - 1], themes[(Number(secondVideo.slice(0, -4))) - 1], themes[(Number(thirdVideo.slice(0, -4))) - 1])
         fs.writeFileSync(path.join(__dirname, 'config', 'subtitles.srt'), generatedScript as string)
         console.log('Generated script!')
 
         // Concat each clip together
         console.log('Concatenating videos...')
-        const concat = () => {
+        const concat: Function = () => {
             return new Promise((resolve, reject) => {
                 try {
                     const process = spawn('ffmpeg', [
@@ -333,6 +395,8 @@ async function main(testingMode = false) {
                     }
                 })
 
+                const voice: string = Math.random() > 0.5 ? "en-US-Neural2-D" : "en-US-Neural2-J"
+
                 // Generate TTS audio for each subtitle
                 for (let i = 0; i < subtitles.length; i++) {
                     const entry: any = subtitles[i]
@@ -343,7 +407,7 @@ async function main(testingMode = false) {
                             "effectsProfileId": [
                                 "small-bluetooth-speaker-class-device"
                             ],
-                            "pitch": 0,
+                            "pitch": -12,
                             "speakingRate": 0.90
                         },
                         "input": {
@@ -351,7 +415,7 @@ async function main(testingMode = false) {
                         },
                         "voice": {
                             "languageCode": "en-US",
-                            "name": "en-US-Neural2-I" || "en-AU-Neural2-B" || "en-AU-Neural2-D" || "en-GB-News-J"
+                            "name": voice
                         }
                     }
 
@@ -388,6 +452,8 @@ async function main(testingMode = false) {
                 // Use ffprobe to get the audio duration
                 const ffprobeOutput = execSync(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`, { encoding: 'utf-8' })
                 const duration = parseFloat(ffprobeOutput)
+
+                console.log('File Duration ' + (i + 1) + ' ' + duration)
 
                 let startTime = 0
                 let endTime = 0
@@ -435,8 +501,8 @@ async function main(testingMode = false) {
         await addSubtitles()
         console.log('Added subtitles!')
 
-        console.log('Adding Text to Speech to video...')
         async function createTTSFile() {
+            console.log('Adding Text to Speech to video...')
             const ttsFiles: Array<string> = [
                 '../app/output/temp/mp3/output_0.mp3',
                 '../app/output/temp/mp3/output_1.mp3',
@@ -444,26 +510,32 @@ async function main(testingMode = false) {
             ]
 
             // Write code between these 2 comments
-            let [duration0, duration1, duration2] = await Promise.all([
-                getMp3Duration(ttsFiles[0] as string),
+            let [duration1, duration2] = await Promise.all([
                 getMp3Duration(ttsFiles[1] as string),
                 getMp3Duration(ttsFiles[2] as string)
             ])
 
-            duration0 = Math.round(duration0 * 1000)
             duration1 = Math.round(duration1 * 1000)
             duration2 = Math.round(duration2 * 1000)
 
             console.log(
-                'duration0: ' + duration0 + '\n' +
                 'duration1: ' + duration1 + '\n' +
                 'duration2: ' + duration2 + '\n'
             )
 
             // Calculate the delays
-            const delay0 = 5000 - duration0
             const delay1 = 5000 - duration1
             const delay2 = 5000 - duration2
+
+            console.log(
+                'delay1: ' + delay1 + '\n' +
+                'delay2: ' + delay2 + '\n'
+            )
+
+            // Make this for loop restart the for loop at the same index not higher
+            if (delay1 < 0 || delay2 < 0) {
+                return false as boolean
+            }
 
             const ffmpegArgs = [
                 '-i', ttsFiles[0],
@@ -488,20 +560,34 @@ async function main(testingMode = false) {
             if (ffmpeg.stderr) {
                 console.error(ffmpeg.stderr)
             }
+
+            return true
         }
 
         async function applyTTS() {
             const inputVideo = '../app/output/temp/subtitled.mp4'
             const ttsFile = '../app/output/temp/mp3/tts.mp3'
 
-            const ffmpegArgs = [
+            const ffmpegArgs: Array<string> = [
                 '-i', inputVideo,
                 '-i', ttsFile,
-                '-c:v', 'copy', // Copy video stream
-                '-map', '0:v:0', // Map video from input
-                '-map', '1:a:0', // Map audio from tts.mp3
-                '-shortest', // End the output when the shortest input ends
-                '../app/output/output.mp4'
+
+                // Copy video stream
+                '-c:v', 'copy',
+
+                // Map video from input
+                '-map', '0:v:0',
+
+                // Map audio from tts.mp3
+                '-map', '1:a:0',
+
+                // End the output when the shortest input ends
+                '-shortest',
+                `../app/output ${i + 1}.mp4` // ! DONT MODIFY, 
+                // It is set like that because the cleanup
+                // function deletes everything inside output
+                // Will refactor in the future
+                // TODO: Refactor the
             ]
 
             const result = spawnSync('ffmpeg', ffmpegArgs)
@@ -513,7 +599,13 @@ async function main(testingMode = false) {
             }
         }
 
-        await createTTSFile()
+        const shouldRestart: boolean = await createTTSFile()
+
+        if (!shouldRestart) {
+            console.log('Delays are messed up, we will add the functionality later to make the function work')
+            continue
+        }
+
         await applyTTS()
         console.log('Added Text to Speech to video...')
 
@@ -530,6 +622,8 @@ async function main(testingMode = false) {
         console.log('✅ Processed combination: ' + (i + 1))
         const endTime = Date.now() // Record the end time
         const elapsedTime = endTime - startTime // Calculate elapsed time in milliseconds
+
+        // await playVideo(path.join(__dirname as string, 'app' as string, `output ${i + 1}.mp4` as string))
 
         // KEEP AT END
         // Check if less than 22 seconds have passed, and add delay if needed
@@ -559,8 +653,6 @@ const testingMode = process.argv.includes('--test')
 // generates subtitles based on combinations
 // Update subtitle length according to each tts clip
 // add subtitles to video
-
-//TODO:
-//* add tts
+// add tts
 
 main(testingMode)
