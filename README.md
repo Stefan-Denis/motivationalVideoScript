@@ -6,6 +6,7 @@
 - [Features](#features)
 - [Technologies Used](#technologies-used)
 - [Installation](#installation)
+- [Requirements](#Requirements)
 - [Usage](#usage)
 - [Examples](#examples)
 - [Troubleshooting](#troubleshooting)
