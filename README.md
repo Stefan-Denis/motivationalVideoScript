@@ -24,7 +24,7 @@ Welcome to the Automated Content Creation App! This innovative application lever
 - 🤖 Utilizes GPT-3.5 Turbo 16K for intelligent content generation
 - 🔊 Harnesses Google's TTS Neural2 for natural-sounding voiceovers
 - 🧰 Employs FFmpeg and MediaInfo for advanced video processing
-- 💼 Supports TypeScript and PowerShell for seamless integration
+- 💼 Uses TypeScript and PowerShell at the core
 
 ## Technologies Used
 
@@ -56,6 +56,8 @@ npm install
 ## Requirements
 1. Active internet connection
 2. minimum of 3 background videos, resolution of 720x1280 and 9:16 format, other resolutions are not officially supported and will lead to errors
+3. GPT API key
+4. Google JSON file from their cloud named 'serviceaccount.json'
 
 ## Usage
 
