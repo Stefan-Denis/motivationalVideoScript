@@ -239,37 +239,68 @@ async function createScript(video1: string, video2: string, video3: string): Pro
     // Uses its own custom type
     // Check types.d.ts
     const prompt: Prompt = `Generate a concise .srt script for a motivational video with three 5-second clips (max 15 seconds total). Say something in the first subtitle that will HOOK the viewer to watch to the end. Use all the tricks in the book to get the viewer to watch to the end
-    
-    Make the script readable by humans. Provide assertive, red-pill style motivation:
+
+    Make the script readable by humans. Provide assertive, red-pill style motivation respecting the following themes I will give you:
 
     Video 1 Theme: ${video1 as string}
     Video 2 Theme: ${video2 as string}
     Video 3 Theme: ${video3 as string}
 
-    Each clip should be exactly 15 seconds long. Ensure that the script fits within this time frame and make sure that the character count does not exceed 55 characters but try to be above 45 and between 45 - 55 characters.
+    Requirements for generating a single subtitle:
+        - 60 characters or 13 tokens MAX!
+        - 53 characters or 11 tokens at MINIMUM!
+        - Make it readable in under 5 SECONDS
+        - Don't cheap out on your words!
 
-    you must respect the word limit with your life, failure to respect this limit can bring many consequences that we do not want to face. If a quote or subtitle is SMALLER than 45 characters but LONGER than 55 we will both face the consequences. IF I DARE catch YOU somehow making quotes less than 45 characters or more than 55 characters, oh boy I don't want to face the consequences alongside you. You DEPEND on generating THIS CORRECTLY.
+    What you can talk about in the video:
+        - Give advice
+        - Give motivation
+        - Give tips on certain self improvement topics
+
+    What kind of quotes to avoid:
+        - "Experience the power of rain." Too short and tacky
+        - "Want the good life? Hustle harder now!" The idea is good but its too short 
+
+    Should you use commas and question marks:
+        - Yes you should
+
+    List of hooks to get viewers attention:
+        - "___ (of) people stop scrolling!"
+        - "Stop scrolling if you want to do ___"
+        - "Here's a simple hack to help you do ___"
+        - "Did you know that ___"
+        - "What would you do if ___?"
+        - "Woudn't it be nice to ___?" (ex: retire your parents, have your future secured (Invent you own as well))
+
+        (Please also invent your own hooks, don't just use these ones)
+
+    Things to take into account BEFORE generating anything:
+        - You only have 3 subtitles to work with
+        - You have to manage the right amount of motivation and dopamine this video gives
+        - Do not use hooks in the second or last subtitle.
+
+    Template to follow: 
 
     1
     00:00:00,000 --> 00:00:05,000
-    <generate text here and use the video 1 themes for it and keep it one line MAX 55 CHARACTERS>
+    <generate text here must be max 60 characters or 13 tokens>
 
     2
     00:00:05,000 --> 00:00:10,000
-    <generate text here and use the video 2 themes for it and keep it one line MAX 55 CHARACTERS>
+    <generate text here must be max 60 characters or 13 tokens>
 
     3
     00:00:10,000 --> 00:00:15,000
-    <generate text here and use the video 3 themes for it and keep it one line MAX 55 CHARACTERS>
+    <generate text here must be max 60 characters or 13 tokens>
     `
 
     const openai = new OpenAI({
-        apiKey: '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' as string
+        apiKey: process.env.GPT_API_KEY as string
     })
 
     const completion: ChatCompletion = await openai.chat.completions.create({
         messages: [{ role: 'system', content: prompt }] as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
-        model: 'gpt-3.5-turbo' as string,
+        model: 'gpt-3.5-turbo-16k-0613',
     })
 
     const generatedScript: string = completion.choices[0].message.content as string
@@ -510,22 +541,25 @@ async function main(testingMode = false) {
             ]
 
             // Write code between these 2 comments
-            let [duration1, duration2] = await Promise.all([
+            let [duration0, duration1, duration2] = await Promise.all([
+                getMp3Duration(ttsFiles[0] as string),
                 getMp3Duration(ttsFiles[1] as string),
                 getMp3Duration(ttsFiles[2] as string)
             ])
 
+            duration0 = Math.round(duration0 * 1000)
             duration1 = Math.round(duration1 * 1000)
             duration2 = Math.round(duration2 * 1000)
 
             console.log(
+                'duration0: ' + duration0 + '\n' +
                 'duration1: ' + duration1 + '\n' +
                 'duration2: ' + duration2 + '\n'
             )
 
-            // Calculate the delays
-            const delay1 = 5000 - duration1
-            const delay2 = 5000 - duration2
+            // Calculate the delaysS
+            const delay1 = 5000 - duration0
+            const delay2 = 5000 - duration1
 
             console.log(
                 'delay1: ' + delay1 + '\n' +
@@ -547,7 +581,7 @@ async function main(testingMode = false) {
                 `[2:a]adelay=${delay2}[a2];` +
                 `[a0][a1]concat=n=2:v=0:a=1[a01];` +
                 `[a01][a2]concat=n=2:v=0:a=1[aout]`,
-                '-map', '[aout]', '-b:a', '256k', // Setăm bitrate-ul aici
+                '-map', '[aout]', '-b:a', '256k',
                 '../app/output/temp/mp3/tts.mp3'
             ]
 
@@ -602,7 +636,8 @@ async function main(testingMode = false) {
         const shouldRestart: boolean = await createTTSFile()
 
         if (!shouldRestart) {
-            console.log('Delays are messed up, we will add the functionality later to make the function work')
+            console.log('Video processing error, restarting . . .')
+            i--
             continue
         }
 
