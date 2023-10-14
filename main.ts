@@ -315,10 +315,9 @@ async function createScript(video1: string, video2: string, video3: string): Pro
     return generatedScript as string
 }
 
-async function throwErr(reason: string, line: string) {
+async function throwErr(reason: string) {
     await crashManager('stop')
     console.log(`${reason}, program operation will halt`)
-    console.log(`Error in TypeScript at line/lines: ${line}`)
     process.exit()
 }
 
@@ -386,7 +385,7 @@ async function main(testingMode = false) {
             break
 
         default:
-            await throwErr('Error in crash manager', '355 - 390')
+            await throwErr('Error in crash manager')
     }
 
     // Grab video theme
@@ -396,14 +395,14 @@ async function main(testingMode = false) {
     try {
         videos = fs.readdirSync(path.join(__dirname as string, 'app' as string, 'input' as string) as string) as Array<string>
     } catch {
-        await throwErr('Error in getting videos', '397')
+        await throwErr('Error in getting videos')
     }
 
     try {
         themes = await getVideoTheme(videos!) as Array<string>
         console.log('✅ Theme retrieved from each video' as string) as void
     } catch {
-        await throwErr('Error getting video themes', '403')
+        await throwErr('Error getting video themes')
     }
 
     // Determine the end index based on testing mode
@@ -418,14 +417,14 @@ async function main(testingMode = false) {
             await cleanup() as void
             console.log('✅ Finished cleanup') as void
         } catch {
-            await throwErr('Error in cleanup', '418')
+            await throwErr('Error in cleanup')
         }
 
         try {
             await trimVideos() as void
             console.log('✅ Trimmed all the videos') as void
         } catch {
-            await throwErr('Error trimming videos', '425')
+            await throwErr('Error trimming videos')
         }
 
         const combination = combinations[i]
@@ -445,7 +444,7 @@ async function main(testingMode = false) {
             fs.writeFileSync(path.join(__dirname, 'config', 'subtitles.srt'), generatedScript as string)
             console.log('Generated script!')
         } catch {
-            await throwErr('Error in crash manager', '444')
+            await throwErr('Error in crash manager')
         }
 
         // Concat each clip together
@@ -472,7 +471,7 @@ async function main(testingMode = false) {
                     })
                 } catch (error) {
                     console.log(error, +'\n')
-                    throwErr('Error in Concatenatng videos', '456 - 463')
+                    throwErr('Error in Concatenatng videos')
                 }
             })
         }
@@ -537,7 +536,7 @@ async function main(testingMode = false) {
             await createTTS()
             console.log('created tts!')
         } catch {
-            await throwErr('Error in creating TTS', '537')
+            await throwErr('Error in creating TTS')
         }
 
         const modifySubtitles: Function = () => {
@@ -598,7 +597,7 @@ async function main(testingMode = false) {
             await modifySubtitles()
             console.log('Modified script!')
         } catch {
-            await throwErr('Error modifing subtitles', '598')
+            await throwErr('Error modifing subtitles')
         }
 
         async function addSubtitles() {
@@ -614,7 +613,7 @@ async function main(testingMode = false) {
             await addSubtitles()
             console.log('Added subtitles!')
         } catch {
-            await throwErr('Error adding subtitles to video', '614')
+            await throwErr('Error adding subtitles to video')
         }
 
         async function createTTSFile() {
@@ -732,7 +731,7 @@ async function main(testingMode = false) {
                 continue
             }
         } catch {
-            await throwErr('Error creating TTS file', '728')
+            await throwErr('Error creating TTS file')
         }
 
         try {
@@ -740,7 +739,7 @@ async function main(testingMode = false) {
             await applyTTS()
             console.log('Added Text to Speech to video...')
         } catch {
-            await throwErr('Error adding TTS to video', '740')
+            await throwErr('Error adding TTS to video')
         }
 
         // END OF PROCESSING
@@ -752,7 +751,7 @@ async function main(testingMode = false) {
         try {
             fs.writeFileSync(combinationsPath, JSON.stringify(combinations, null, 2))
         } catch {
-            await throwErr('Error writing combination data to file', '753')
+            await throwErr('Error writing combination data to file')
         }
 
         // Update current index
