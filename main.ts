@@ -26,7 +26,6 @@ async function cleanup(): Promise<void> {
 
     // Directories specified for deletion
     const inputDir: string = path.join(__dirname as string, 'app' as string, 'input' as string) // used for renaming all the files
-    const dir: string = path.join(__dirname as string, 'app' as string, 'output' as string) // Make temp dir
     const tempdir: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'temp' as string) // Make temp dir
     const mp3dir: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'temp' as string, 'mp3' as string) // Make mp3 folder
 
@@ -43,8 +42,7 @@ async function cleanup(): Promise<void> {
     //TODO: rename files from input
     async function main(): Promise<void> {
         await renameClips()
-        fs.emptyDirSync(dir) as void
-        fs.mkdirSync(tempdir) as void
+        fs.emptyDirSync(tempdir) as void
         fs.mkdirSync(mp3dir) as void
     }
 
@@ -235,6 +233,9 @@ async function getVideoTheme(videos: Array<string>): Promise<Array<string>> {
 
 async function createScript(video1: string, video2: string, video3: string): Promise<string> {
 
+    //TODO
+    const previousScripts = undefined
+
     // The prompt
     // Uses its own custom type
     // Check types.d.ts
@@ -279,6 +280,9 @@ async function createScript(video1: string, video2: string, video3: string): Pro
         - You have to manage the right amount of motivation and dopamine this video gives
         - Do not use hooks in the second or last subtitle.
 
+    Here are the previous scripts:
+    ${previousScripts}
+
     Template to follow: 
 
     1
@@ -301,6 +305,8 @@ async function createScript(video1: string, video2: string, video3: string): Pro
     const completion: ChatCompletion = await openai.chat.completions.create({
         messages: [{ role: 'system', content: prompt }] as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
         model: 'gpt-3.5-turbo-16k-0613',
+        frequency_penalty: 0.2312,
+        temperature: 0.8312
     })
 
     const generatedScript: string = completion.choices[0].message.content as string
@@ -309,7 +315,16 @@ async function createScript(video1: string, video2: string, video3: string): Pro
     return generatedScript as string
 }
 
-async function playVideo(videoPath: string) {
+async function throwErr(reason: string, line: string) {
+    await crashManager('stop')
+    console.log(`${reason}, program operation will halt`)
+    console.log(`Error in TypeScript at line/lines: ${line}`)
+    process.exit()
+}
+
+/* Unused function */
+/* Might become good in the future */
+/* async function playVideo(videoPath: string) {
     const ffplay = spawn('ffplay', [videoPath])
 
     ffplay.on('error', (err) => {
@@ -324,42 +339,94 @@ async function playVideo(videoPath: string) {
     setTimeout(() => {
         ffplay.kill('SIGINT') // This sends the interrupt signal to terminate the process
     }, 16000) // 16 seconds in milliseconds
-}
+} */
 
 // The main function
 // all scripts execute here
 // has a testing mode built in
+let i: number = 0
 async function main(testingMode = false) {
-    // Crash manager START
-    await crashManager('start') as void
+    // Load combinations create variables
+    let combinationsPath: string = path.join(__dirname, 'config', 'combinations.json')
+    let combinations
+    let currentIndex: number
 
-    // begin the process of creating the video combinations:
-    await createCombinations() as void
-    console.log('✅ Generated all video combinations') as void
+    // Read the crash.txt file and save its data
+    const crashValue: string = fs.readFileSync(path.join(__dirname, 'config', 'crash.txt'), 'utf-8')
+
+    // Check if the app was running
+    switch (crashValue) {
+        // If the app crashed and started again
+        case 'running':
+            combinations = JSON.parse(fs.readFileSync(combinationsPath, 'utf-8'))
+
+            for (let x = 0; x < combinations.length; x++) {
+                console.log(x)
+                if (combinations[x][3] === false) {
+                    currentIndex = x
+                    break
+                }
+            }
+
+            break
+
+        // If the app was not running when started
+        case 'notRunning':
+            // Crash manager START
+            await crashManager('start') as void
+
+            // begin the process of creating the video combinations:
+            await createCombinations() as void
+            console.log('✅ Generated all video combinations') as void
+
+            // Load combinations
+            combinations = JSON.parse(fs.readFileSync(combinationsPath, 'utf-8'))
+            currentIndex = 0 // Start from 0
+
+            break
+
+        default:
+            await throwErr('Error in crash manager', '355 - 390')
+    }
 
     // Grab video theme
-    const videos: Array<string> = fs.readdirSync(path.join(__dirname as string, 'app' as string, 'input' as string) as string) as Array<string>
-    const themes: Array<string> = await getVideoTheme(videos) as Array<string>
-    console.log('✅ Theme retrieved from each video' as string) as void
+    let videos: Array<string>
+    let themes: Array<string>
 
-    // Load combinations
-    const combinationsPath = path.join(__dirname, 'config', 'combinations.json')
-    let combinations = JSON.parse(await fs.readFile(combinationsPath, 'utf-8'))
-    let currentIndex = 0
+    try {
+        videos = fs.readdirSync(path.join(__dirname as string, 'app' as string, 'input' as string) as string) as Array<string>
+    } catch {
+        await throwErr('Error in getting videos', '397')
+    }
+
+    try {
+        themes = await getVideoTheme(videos!) as Array<string>
+        console.log('✅ Theme retrieved from each video' as string) as void
+    } catch {
+        await throwErr('Error getting video themes', '403')
+    }
 
     // Determine the end index based on testing mode
-    let endIndex = testingMode ? currentIndex + 1 : combinations.length
+    let endIndex = testingMode ? currentIndex! + 1 : combinations.length
 
     // Process each combination
-    for (let i = currentIndex; i < endIndex; i++) {
+    for (i = currentIndex!; i < endIndex; i++) {
         const startTime = Date.now() // Record the start time
 
         // Clean up the directory
-        await cleanup() as void
-        console.log('✅ Finished cleanup') as void
+        try {
+            await cleanup() as void
+            console.log('✅ Finished cleanup') as void
+        } catch {
+            await throwErr('Error in cleanup', '418')
+        }
 
-        await trimVideos() as void
-        console.log('✅ Trimmed all the videos') as void
+        try {
+            await trimVideos() as void
+            console.log('✅ Trimmed all the videos') as void
+        } catch {
+            await throwErr('Error trimming videos', '425')
+        }
 
         const combination = combinations[i]
         const [firstVideo, secondVideo, thirdVideo] = combination.slice(0, 3)
@@ -367,21 +434,25 @@ async function main(testingMode = false) {
         console.log('\n')
         console.log(`Processing combination ${(i + 1)}:`, combinations[i])
 
-        console.log('Video theme 1:', themes[(Number(firstVideo.slice(0, -4))) - 1])
-        console.log('Video theme 2:', themes[(Number(secondVideo.slice(0, -4))) - 1])
-        console.log('Video theme 3:', themes[(Number(thirdVideo.slice(0, -4))) - 1])
+        console.log('Video theme 1:', themes![(Number(firstVideo.slice(0, -4))) - 1])
+        console.log('Video theme 2:', themes![(Number(secondVideo.slice(0, -4))) - 1])
+        console.log('Video theme 3:', themes![(Number(thirdVideo.slice(0, -4))) - 1])
 
         // Create script with AI 
-        console.log('Generating script...')
-        const generatedScript = await createScript(themes[(Number(firstVideo.slice(0, -4))) - 1], themes[(Number(secondVideo.slice(0, -4))) - 1], themes[(Number(thirdVideo.slice(0, -4))) - 1])
-        fs.writeFileSync(path.join(__dirname, 'config', 'subtitles.srt'), generatedScript as string)
-        console.log('Generated script!')
+        try {
+            console.log('Generating script...')
+            const generatedScript = await createScript(themes![(Number(firstVideo.slice(0, -4))) - 1], themes![(Number(secondVideo.slice(0, -4))) - 1], themes![(Number(thirdVideo.slice(0, -4))) - 1])
+            fs.writeFileSync(path.join(__dirname, 'config', 'subtitles.srt'), generatedScript as string)
+            console.log('Generated script!')
+        } catch {
+            await throwErr('Error in crash manager', '444')
+        }
 
         // Concat each clip together
-        console.log('Concatenating videos...')
         const concat: Function = () => {
             return new Promise((resolve, reject) => {
                 try {
+                    console.log('Concatenating videos...')
                     const process = spawn('ffmpeg', [
                         '-i', path.join(__dirname, `./app/output/temp/${firstVideo}`),
                         '-i', path.join(__dirname, `./app/output/temp/${secondVideo}`),
@@ -393,22 +464,21 @@ async function main(testingMode = false) {
 
                     process.on('close', (code) => {
                         if (code === 0) {
+                            console.log('concatenated videos!')
                             resolve(true)
                         } else {
                             reject(`ffmpeg process exited with code ${code}`)
                         }
                     })
                 } catch (error) {
-                    console.log(error)
+                    console.log(error, +'\n')
+                    throwErr('Error in Concatenatng videos', '456 - 463')
                 }
             })
         }
         await concat()
-        console.log('concatenated videos!')
-
 
         // Create TTS
-        console.log('creating tts...')
         const createTTS: Function = () => {
             return new Promise(async (resolve, reject) => {
                 const client = new TextToSpeechClient()
@@ -438,7 +508,7 @@ async function main(testingMode = false) {
                             "effectsProfileId": [
                                 "small-bluetooth-speaker-class-device"
                             ],
-                            "pitch": -12,
+                            "pitch": -15,
                             "speakingRate": 0.90
                         },
                         "input": {
@@ -461,10 +531,15 @@ async function main(testingMode = false) {
             })
 
         }
-        await createTTS()
-        console.log('created tts!')
 
-        console.log('modifying script...')
+        try {
+            console.log('creating tts...')
+            await createTTS()
+            console.log('created tts!')
+        } catch {
+            await throwErr('Error in creating TTS', '537')
+        }
+
         const modifySubtitles: Function = () => {
             const subtitlePath = path.join(__dirname, 'config', 'subtitles.srt')
             const mp3Folder = path.join(__dirname, 'app', 'output', 'temp', 'mp3')
@@ -518,10 +593,14 @@ async function main(testingMode = false) {
             return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`
         }
 
-        await modifySubtitles()
-        console.log('Modified script!')
+        try {
+            console.log('Modifying script...')
+            await modifySubtitles()
+            console.log('Modified script!')
+        } catch {
+            await throwErr('Error modifing subtitles', '598')
+        }
 
-        console.log('Adding subtitles to video...')
         async function addSubtitles() {
             const process = spawnSync('ffmpeg', [
                 '-i', /* path.join(__dirname, 'app', 'output', 'temp', 'concatenated.mp4') */ '../app/output/temp/concatenated.mp4',
@@ -529,11 +608,16 @@ async function main(testingMode = false) {
                 /* path.join(__dirname, 'app', 'output', 'temp', 'subtitled.mp4') */ '../app/output/temp/subtitled.mp4'
             ])
         }
-        await addSubtitles()
-        console.log('Added subtitles!')
+
+        try {
+            console.log('Adding subtitles to video...')
+            await addSubtitles()
+            console.log('Added subtitles!')
+        } catch {
+            await throwErr('Error adding subtitles to video', '614')
+        }
 
         async function createTTSFile() {
-            console.log('Adding Text to Speech to video...')
             const ttsFiles: Array<string> = [
                 '../app/output/temp/mp3/output_0.mp3',
                 '../app/output/temp/mp3/output_1.mp3',
@@ -550,6 +634,10 @@ async function main(testingMode = false) {
             duration0 = Math.round(duration0 * 1000)
             duration1 = Math.round(duration1 * 1000)
             duration2 = Math.round(duration2 * 1000)
+
+            if (duration0 > 5000 || duration1 > 5000 || duration2 > 5000) {
+                return false as boolean
+            }
 
             console.log(
                 'duration0: ' + duration0 + '\n' +
@@ -617,7 +705,7 @@ async function main(testingMode = false) {
 
                 // End the output when the shortest input ends
                 '-shortest',
-                `../app/output ${i + 1}.mp4` // ! DONT MODIFY, 
+                `../app/output/output ${i + 1}.mp4`
                 // It is set like that because the cleanup
                 // function deletes everything inside output
                 // Will refactor in the future
@@ -633,16 +721,27 @@ async function main(testingMode = false) {
             }
         }
 
-        const shouldRestart: boolean = await createTTSFile()
+        let shouldRestart: boolean
 
-        if (!shouldRestart) {
-            console.log('Video processing error, restarting . . .')
-            i--
-            continue
+        try {
+            shouldRestart = await createTTSFile()
+
+            if (!shouldRestart) {
+                console.log('Video processing error, restarting . . .')
+                i--
+                continue
+            }
+        } catch {
+            await throwErr('Error creating TTS file', '728')
         }
 
-        await applyTTS()
-        console.log('Added Text to Speech to video...')
+        try {
+            console.log('Adding Text to Speech to video...')
+            await applyTTS()
+            console.log('Added Text to Speech to video...')
+        } catch {
+            await throwErr('Error adding TTS to video', '740')
+        }
 
         // END OF PROCESSING
         // FINISHING UP
@@ -650,7 +749,11 @@ async function main(testingMode = false) {
         combination[3] = true
 
         // Save combinations back to file
-        await fs.writeFile(combinationsPath, JSON.stringify(combinations, null, 2))
+        try {
+            fs.writeFileSync(combinationsPath, JSON.stringify(combinations, null, 2))
+        } catch {
+            await throwErr('Error writing combination data to file', '753')
+        }
 
         // Update current index
         currentIndex = i + 1
