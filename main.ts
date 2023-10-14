@@ -2,6 +2,7 @@
 import { TextToSpeechClient } from '@google-cloud/text-to-speech'
 import { spawn, ChildProcess, spawnSync } from 'child_process'
 import { execSync } from 'child_process'
+import * as crypto from 'crypto'
 import internal from 'stream'
 import OpenAI from "openai"
 import fs from 'fs-extra'
@@ -233,15 +234,25 @@ async function getVideoTheme(videos: Array<string>): Promise<Array<string>> {
 
 async function createScript(video1: string, video2: string, video3: string): Promise<string> {
 
-    //TODO
-    const previousScripts = undefined
+    // Previous content
+    const previousScript = fs.readFileSync(path.join(__dirname, 'config', 'subtitles.srt'), 'utf8')
+
+    // Parse the subtitles content to extract text and timings
+    const subtitles = previousScript.split(/\n\s*\n/).map(entry => {
+        const lines = entry.trim().split('\n')
+        return {
+            index: lines[0],
+            time: lines[1],
+            text: lines.slice(2).join('\n')
+        }
+    })
 
     // The prompt
     // Uses its own custom type
     // Check types.d.ts
-    const prompt: Prompt = `Generate a concise .srt script for a motivational video with three 5-second clips (max 15 seconds total). Say something in the first subtitle that will HOOK the viewer to watch to the end. Use all the tricks in the book to get the viewer to watch to the end
+    const prompt: Prompt = `WAIT, READ BEFORE DOING! Generate a concise .srt script for a motivational video with three 5-second clips (max 15 seconds total). Say something in the first subtitle that will HOOK the viewer to watch to the end. Use all the tricks in the book to get the viewer to watch to the end
 
-    Make the script readable by humans. Provide assertive, red-pill style motivation respecting the following themes I will give you:
+    Make the script readable by humans. Provide assertive, red-pill style motivation with no fairytale sugarcoating, respecting the following themes I will give you:
 
     Video 1 Theme: ${video1 as string}
     Video 2 Theme: ${video2 as string}
@@ -254,9 +265,11 @@ async function createScript(video1: string, video2: string, video3: string): Pro
         - Don't cheap out on your words!
 
     What you can talk about in the video:
-        - Give advice
-        - Give motivation
+        - Give true advice
+        - Give real, hard motivation
         - Give tips on certain self improvement topics
+        - Do not give sugar-coated advice, the user must have an inner conversation with himself after watching it to reflect on his life.
+        - Money and possesions are important but your belief in god and who you are is much more important, so is your determination and discipline and work
 
     What kind of quotes to avoid:
         - "Experience the power of rain." Too short and tacky
@@ -266,22 +279,45 @@ async function createScript(video1: string, video2: string, video3: string): Pro
         - Yes you should
 
     List of hooks to get viewers attention:
-        - "___ (of) people stop scrolling!"
-        - "Stop scrolling if you want to do ___"
-        - "Here's a simple hack to help you do ___"
-        - "Did you know that ___"
-        - "What would you do if ___?"
-        - "Woudn't it be nice to ___?" (ex: retire your parents, have your future secured (Invent you own as well))
+
+        before you use them, i should tell you that hooks should only be used for the beginning
+        due to your behaviour, you tend to pick the stop scrolling hook, try to use it less
+
+        - "smart people, stop scrolling!"  (I think it is obvious, but replace the _ with text)
+        - "Stop scrolling if you want to ___" (I think it is obvious, but replace the ___ with anything, such as: "succeed, become rich, make money, etc.")
+        - "Here's a simple hack to help you do ___" (I think it is obvious, but replace the ___ with anything of your liking)
+        - "Did you know that ___" (I think it is obvious, but replace the ___ with anything you like!)
+        - "Woudn't it be nice to ___?" (ex: retire your parents, have your future secured (Invent you own as well)) (I think it is obvious, but replace the _ with text and put something that fits the theme)
 
         (Please also invent your own hooks, don't just use these ones)
 
     Things to take into account BEFORE generating anything:
         - You only have 3 subtitles to work with
+        - You only have 3 subtitles to work with
+        - You only have 3 subtitles to work with
+        - You have to manage the right amount of motivation and dopamine this video gives
+        - You have to manage the right amount of motivation and dopamine this video gives
         - You have to manage the right amount of motivation and dopamine this video gives
         - Do not use hooks in the second or last subtitle.
+        - Do not use hooks in the second or last subtitle.
+        - Do not use hooks in the second or last subtitle.
 
-    Here are the previous scripts:
-    ${previousScripts}
+    You often give a very good hook in the first subtitle but after, you start writing nonsense like "chase your dreams", "seize the day", give out actual advice man, not this fairytale ting!
+
+    Before generating the script, think if it is human-sounding, if not, then you may as well not generate it. But you should generate one.
+    You may begin making the video
+
+    Here is the previous script (Only take in account the subtitles under 4 seconds):
+    DO NOT COPY THE SCRIPT, THE MESSAGE GOT TO BE SOMETHING DIFFERENT1!!!!!:
+    ${subtitles[0].index} 
+    ${subtitles[0].time} 
+    ${subtitles[0].text} (YOUR MESSAGE SHALL BE SOMETHING ELSE THAN THIS)
+    ${subtitles[1].index} 
+    ${subtitles[1].time} 
+    ${subtitles[1].text} (YOUR MESSAGE SHALL BE SOMETHING ELSE THAN THIS)
+    ${subtitles[2].index} 
+    ${subtitles[2].time} 
+    ${subtitles[2].text} (YOUR MESSAGE SHALL BE SOMETHING ELSE THAN THIS)
 
     Template to follow: 
 
@@ -302,6 +338,8 @@ async function createScript(video1: string, video2: string, video3: string): Pro
         apiKey: process.env.GPT_API_KEY as string
     })
 
+    console.log(prompt)
+
     const completion: ChatCompletion = await openai.chat.completions.create({
         messages: [{ role: 'system', content: prompt }] as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
         model: 'gpt-3.5-turbo-16k-0613',
@@ -319,6 +357,12 @@ async function throwErr(reason: string) {
     await crashManager('stop')
     console.log(`${reason}, program operation will halt`)
     process.exit()
+}
+
+async function getRandomSong(songs: string[]): Promise<string> {
+    const randomBytes = crypto.randomBytes(4)
+    const randomIndex = randomBytes.readUInt32BE(0) % songs.length
+    return songs[randomIndex]
 }
 
 /* Unused function */
@@ -508,7 +552,7 @@ async function main(testingMode = false) {
                                 "small-bluetooth-speaker-class-device" as string
                             ],
                             "pitch": -15 as number,
-                            "speakingRate": 0.90 as number
+                            "speakingRate": 1 as number
                         } as object,
                         "input": {
                             "text": entry.text as string
@@ -724,8 +768,7 @@ async function main(testingMode = false) {
                 '-map', '1:a:0',
 
                 // End the output when the shortest input ends
-                '-shortest',
-                `../app/output/output ${i + 1}.mp4`
+                `../app/output/temp/tts.mp4`
             ]
 
             const result = spawnSync('ffmpeg', ffmpegArgs)
@@ -735,6 +778,18 @@ async function main(testingMode = false) {
             } else {
                 console.log('TTS applied successfully!')
             }
+
+            // Copy the file
+            const sourceVideoPath = '../app/output/temp/tts.mp4'
+            const destinationVideoPath = `../app/output/withoutMusic/output${i + 1}.mp4`
+
+            const ffmpegArgsForCopy = [
+                '-i', sourceVideoPath,
+                '-c:v', 'copy',
+                destinationVideoPath
+            ]
+
+            spawnSync('ffmpeg', ffmpegArgsForCopy)
         }
 
         let shouldRestart: boolean
@@ -752,11 +807,36 @@ async function main(testingMode = false) {
         }
 
         try {
-            console.log('Adding Text to Speech to video...')
+            console.log('Adding Text to Speech to video . . .')
             await applyTTS()
-            console.log('Added Text to Speech to video...')
+            console.log('Added Text to Speech to video . . .')
         } catch {
             await throwErr('Error adding TTS to video')
+        }
+
+        async function applyMusic(inputAudioPath: string): Promise<void> {
+            const inputVideoPath: string = path.join(__dirname as string, 'app', 'output', 'temp', 'tts.mp4')
+
+            const ffmpegArgs: Array<string> = [
+                '-i', inputVideoPath as string,
+                '-i', path.join(__dirname as string, 'app', 'output', 'music', inputAudioPath as string),
+                '-filter_complex', '[0:a][1:a]amix=inputs=2[aout]',
+                '-map', '0:v:0',
+                '-map', '[aout]',
+                path.join(__dirname as string, 'app', 'output', 'withMusic', `output ${i + 1}.mp4`) as string
+            ]
+
+            spawnSync('ffmpeg', ffmpegArgs)
+        }
+
+        try {
+            console.log('Adding music to video . . .')
+            const selectedSong = await getRandomSong(fs.readdirSync(path.join(__dirname, 'app', 'output', 'music')))
+
+            await applyMusic(selectedSong)
+            console.log('Added music to video . . .')
+        } catch {
+            await throwErr('Error adding song to video')
         }
 
         // END OF PROCESSING
@@ -814,5 +894,11 @@ const testingMode = process.argv.includes('--test')
 // add subtitles to video
 // add tts
 // add song
+
+const videoDirNoMusic: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'withMusic' as string)
+const videoDirWMusic: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'withoutMusic' as string)
+
+fs.emptyDirSync(videoDirNoMusic) as void
+fs.emptyDirSync(videoDirWMusic) as void
 
 main(testingMode)
