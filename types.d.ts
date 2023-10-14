@@ -6,3 +6,9 @@ interface UI {
 type Permutations = Array<[string, string, string, boolean]>
 
 type Prompt = string
+
+interface TTSEntry {
+    index: string
+    time: string
+    text: string
+}
