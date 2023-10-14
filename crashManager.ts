@@ -15,3 +15,7 @@ export default async function crashManager(script: string): Promise<void> {
         console.error('Error in crashManager:', error)
     }
 }
+
+if (process.argv.includes('--reset-crash-file-to-default')) {
+    crashManager('stop')
+}
