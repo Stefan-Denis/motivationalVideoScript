@@ -499,24 +499,24 @@ async function main(testingMode = false) {
 
                 // Generate TTS audio for each subtitle
                 for (let i = 0; i < subtitles.length; i++) {
-                    const entry: any = subtitles[i]
+                    const entry: TTSEntry = subtitles[i]
 
-                    const request: any = {
+                    const request: object = {
                         "audioConfig": {
-                            "audioEncoding": "LINEAR16",
+                            "audioEncoding": "LINEAR16" as string,
                             "effectsProfileId": [
-                                "small-bluetooth-speaker-class-device"
+                                "small-bluetooth-speaker-class-device" as string
                             ],
-                            "pitch": -15,
-                            "speakingRate": 0.90
-                        },
+                            "pitch": -15 as number,
+                            "speakingRate": 0.90 as number
+                        } as object,
                         "input": {
-                            "text": entry.text
-                        },
+                            "text": entry.text as string
+                        } as object,
                         "voice": {
-                            "languageCode": "en-US",
+                            "languageCode": "en-US" as string,
                             "name": voice as string
-                        }
+                        } as object
                     }
 
                     const [response] = await client.synthesizeSpeech(request)
@@ -600,6 +600,7 @@ async function main(testingMode = false) {
             await throwErr('Error modifing subtitles')
         }
 
+        // Add subtitles function
         async function addSubtitles() {
             const process = spawnSync('ffmpeg', [
                 '-i', /* path.join(__dirname, 'app', 'output', 'temp', 'concatenated.mp4') */ '../app/output/temp/concatenated.mp4',
@@ -608,6 +609,7 @@ async function main(testingMode = false) {
             ])
         }
 
+        // Add subtitles
         try {
             console.log('Adding subtitles to video...')
             await addSubtitles()
@@ -630,10 +632,12 @@ async function main(testingMode = false) {
                 getMp3Duration(ttsFiles[2] as string)
             ])
 
-            duration0 = Math.round(duration0 * 1000)
-            duration1 = Math.round(duration1 * 1000)
-            duration2 = Math.round(duration2 * 1000)
+            // Durations of each file
+            duration0 = Math.round(duration0 * 1000) as number
+            duration1 = Math.round(duration1 * 1000) as number
+            duration2 = Math.round(duration2 * 1000) as number
 
+            // Check if they are above 5 seconds or 5000 milliseconds
             if (duration0 > 5000 || duration1 > 5000 || duration2 > 5000) {
                 return false as boolean
             }
@@ -644,9 +648,9 @@ async function main(testingMode = false) {
                 'duration2: ' + duration2 + '\n'
             )
 
-            // Calculate the delaysS
-            const delay1 = 5000 - duration0
-            const delay2 = 5000 - duration1
+            // Calculate the delays
+            const delay1 = 5000 - duration0 as number
+            const delay2 = 5000 - duration1 as number
 
             console.log(
                 'delay1: ' + delay1 + '\n' +
@@ -659,16 +663,33 @@ async function main(testingMode = false) {
             }
 
             const ffmpegArgs = [
-                '-i', ttsFiles[0],
-                '-i', ttsFiles[1],
-                '-i', ttsFiles[2],
-                '-filter_complex',
+                '-i' as string, ttsFiles[0] as string,
+                '-i' as string, ttsFiles[1] as string,
+                '-i' as string, ttsFiles[2] as string,
+
+                // Apply complex audio filter graph
+                '-filter_complex' as string,
+
+                // Delays
+                // Apply zero delay to audio stream 1
                 `[0:a]adelay=0|0[a0];` +
+
+                // Apply delay specified by 'delay1' to audio stream 2
                 `[1:a]adelay=${delay1}[a1];` +
+
+                // Apply delay specified by 'delay2' to audio stream 3
                 `[2:a]adelay=${delay2}[a2];` +
+
+                // Concatenation
+                // Concatenate audio streams 1 and 2
                 `[a0][a1]concat=n=2:v=0:a=1[a01];` +
+
+                // Concatenate resulting audio with audio stream 3
                 `[a01][a2]concat=n=2:v=0:a=1[aout]`,
-                '-map', '[aout]', '-b:a', '256k',
+                '-map' as string, '[aout]' as string,
+                '-b:a' as string, '256k' as string,
+
+                // Output file
                 '../app/output/temp/mp3/tts.mp3'
             ]
 
@@ -705,10 +726,6 @@ async function main(testingMode = false) {
                 // End the output when the shortest input ends
                 '-shortest',
                 `../app/output/output ${i + 1}.mp4`
-                // It is set like that because the cleanup
-                // function deletes everything inside output
-                // Will refactor in the future
-                // TODO: Refactor the
             ]
 
             const result = spawnSync('ffmpeg', ffmpegArgs)
@@ -780,8 +797,9 @@ async function main(testingMode = false) {
 
 const testingMode = process.argv.includes('--test')
 
-// Script as of now only does:
+// What the scritp does:
 // sets app mode as running when starting
+// can detect when app crashed or ran normally
 // cleans up the temp directory (./app/output/temp)
 // creates combinations of clips
 // trims videos
@@ -789,7 +807,12 @@ const testingMode = process.argv.includes('--test')
 // loads combinations
 // generates subtitles based on combinations
 // Update subtitle length according to each tts clip
+// creates tts for each subtitle
+// if its under 5 seconds its good
+// if its over 5 seconds then the script restarts 
+// creating that video
 // add subtitles to video
 // add tts
+// add song
 
 main(testingMode)
