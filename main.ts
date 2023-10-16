@@ -424,7 +424,6 @@ async function main(testingMode = false) {
                             console.log('File has been deleted successfully')
                         }
                     })
-
                     fs.unlink(path.join(__dirname as string, `app/output/withoutMusic/output${x + 1}.mp4`), (err) => {
                         if (err) {
                             console.error(err)
