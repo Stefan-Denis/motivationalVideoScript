@@ -130,7 +130,7 @@ async function trimVideos(): Promise<void> {
                         const inputFilePath: string = path.join(__dirname as string, 'app' as string, 'input' as string, file as string)
 
                         // output path for the videos which will be stored temporarily inside `temp` folder
-                        const outputFilePath: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'temp' as string, file as string)
+                        const outputFilePath: string = path.join(__dirname as string, 'app' as string, 'output' as string, '$temp' as string, file as string)
 
                         const process: ChildProcess = spawn('ffmpeg', [
                             '-y' as string,  // Overwrite output files without asking
@@ -301,6 +301,12 @@ async function createScript(video1: string, video2: string, video3: string): Pro
         - Do not use hooks in the second or last subtitle.
         - Do not use hooks in the second or last subtitle.
         - Do not use hooks in the second or last subtitle.
+        - DO NOT SAY STUFF LIKE "embrace the storm" or "Embrace the darkness", it sounds dumb. Sound professional!!!
+        - DO NOT SAY STUFF LIKE "embrace the storm" or "Embrace the darkness", it sounds dumb. Sound professional!!!
+        - DO NOT SAY STUFF LIKE "embrace the storm" or "Embrace the darkness", it sounds dumb. Sound professional!!!
+        - IF THE VIDEO SHOWS STUFF, YOU MUST AFFIRM IT, NOT BE AGAINST IT!
+        - IF THE VIDEO SHOWS STUFF, YOU MUST AFFIRM IT, NOT BE AGAINST IT!
+        - IF THE VIDEO SHOWS STUFF, YOU MUST AFFIRM IT, NOT BE AGAINST IT!
 
     You often give a very good hook in the first subtitle but after, you start writing nonsense like "chase your dreams", "seize the day", give out actual advice man, not this fairytale ting!
 
@@ -426,6 +432,17 @@ async function main(testingMode = false) {
             combinations = JSON.parse(fs.readFileSync(combinationsPath, 'utf-8'))
             currentIndex = 0 // Start from 0
 
+            // Clear the $temp dir only if the app was not running
+            const trimmedVideoTempDir: string = path.join(__dirname as string, 'app', 'output', '$temp')
+            fs.emptyDirSync(trimmedVideoTempDir)
+
+            try {
+                await trimVideos() as void
+                console.log('✅ Trimmed all the videos') as void
+            } catch {
+                await throwErr('Error trimming videos')
+            }
+
             break
 
         default:
@@ -464,13 +481,6 @@ async function main(testingMode = false) {
             await throwErr('Error in cleanup')
         }
 
-        try {
-            await trimVideos() as void
-            console.log('✅ Trimmed all the videos') as void
-        } catch {
-            await throwErr('Error trimming videos')
-        }
-
         const combination = combinations[i]
         const [firstVideo, secondVideo, thirdVideo] = combination.slice(0, 3)
 
@@ -497,9 +507,9 @@ async function main(testingMode = false) {
                 try {
                     console.log('Concatenating videos...')
                     const process = spawn('ffmpeg', [
-                        '-i', path.join(__dirname, `./app/output/temp/${firstVideo}`),
-                        '-i', path.join(__dirname, `./app/output/temp/${secondVideo}`),
-                        '-i', path.join(__dirname, `./app/output/temp/${thirdVideo}`),
+                        '-i', path.join(__dirname, `./app/output/$temp/${firstVideo}`),
+                        '-i', path.join(__dirname, `./app/output/$temp/${secondVideo}`),
+                        '-i', path.join(__dirname, `./app/output/$temp/${thirdVideo}`),
                         '-filter_complex', '[0:v][1:v][2:v]concat=n=3:v=1:a=0[outv]',  // Removed audio references
                         '-map', '[outv]',
                         path.join(__dirname, './app/output/temp/concatenated.mp4')
@@ -706,7 +716,8 @@ async function main(testingMode = false) {
                 return false as boolean
             }
 
-            const ffmpegArgs = [
+            const ffmpegArgs: Array<string> = [
+                // Input files for concatenation of MP3 files
                 '-i' as string, ttsFiles[0] as string,
                 '-i' as string, ttsFiles[1] as string,
                 '-i' as string, ttsFiles[2] as string,
@@ -734,7 +745,7 @@ async function main(testingMode = false) {
                 '-b:a' as string, '256k' as string,
 
                 // Output file
-                '../app/output/temp/mp3/tts.mp3'
+                '../app/output/temp/mp3/tts.mp3' as string
             ]
 
             const ffmpeg = spawnSync('ffmpeg', ffmpegArgs as Array<string>, { encoding: 'utf-8' })
