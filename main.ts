@@ -30,19 +30,8 @@ async function cleanup(): Promise<void> {
     const tempdir: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'temp' as string) // Make temp dir
     const mp3dir: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'temp' as string, 'mp3' as string) // Make mp3 folder
 
-    async function renameClips(): Promise<void> {
-        const files = fs.readdirSync(inputDir)
-
-        files.forEach((file, index) => {
-            const oldPath = path.join(inputDir, file)
-            const newPath = path.join(inputDir, `${index + 1}${path.extname(file)}`)
-            fs.renameSync(oldPath, newPath)
-        })
-    }
-
     //TODO: rename files from input
     async function main(): Promise<void> {
-        await renameClips()
         fs.emptyDirSync(tempdir) as void
         fs.mkdirSync(mp3dir) as void
     }
@@ -247,6 +236,16 @@ async function createScript(video1: string, video2: string, video3: string): Pro
         }
     })
 
+    let str: string
+
+    if (failed) {
+        str = 'Failed because the subtitles were too long, try just a tiny bit shorter like a 5 characters shorter'
+    } else {
+        str = 'last run was successful, ignore this indicator!'
+    }
+
+    failed = false
+
     // The prompt
     // Uses its own custom type
     // Check types.d.ts
@@ -325,6 +324,9 @@ async function createScript(video1: string, video2: string, video3: string): Pro
     ${subtitles[2].time} 
     ${subtitles[2].text} (YOUR MESSAGE SHALL BE SOMETHING ELSE THAN THIS)
 
+    You actually run many times a day and down below ill tell you if your previous subtitles were bad or not
+    Here is the status of the last run and the instructions to follow: ${str}
+
     Template to follow: 
 
     1
@@ -394,6 +396,7 @@ async function getRandomSong(songs: string[]): Promise<string> {
 // all scripts execute here
 // has a testing mode built in
 let i: number = 0
+let failed: boolean
 async function main(testingMode = false) {
     // Load combinations create variables
     let combinationsPath: string = path.join(__dirname, 'config', 'combinations.json')
@@ -413,6 +416,23 @@ async function main(testingMode = false) {
                 console.log(x)
                 if (combinations[x][3] === false) {
                     currentIndex = x
+
+                    fs.unlink(path.join(__dirname as string, `app/output/withMusic/output ${x + 1}.mp4`), (err) => {
+                        if (err) {
+                            console.error(err)
+                        } else {
+                            console.log('File has been deleted successfully')
+                        }
+                    })
+
+                    fs.unlink(path.join(__dirname as string, `app/output/withoutMusic/output${x + 1}.mp4`), (err) => {
+                        if (err) {
+                            console.error(err)
+                        } else {
+                            console.log('File has been deleted successfully')
+                        }
+                    })
+
                     break
                 }
             }
@@ -421,6 +441,12 @@ async function main(testingMode = false) {
 
         // If the app was not running when started
         case 'notRunning':
+            const videoDirNoMusic: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'withMusic' as string)
+            const videoDirWMusic: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'withoutMusic' as string)
+
+            fs.emptyDirSync(videoDirNoMusic) as void
+            fs.emptyDirSync(videoDirWMusic) as void
+
             // Crash manager START
             await crashManager('start') as void
 
@@ -810,6 +836,7 @@ async function main(testingMode = false) {
 
             if (!shouldRestart) {
                 console.log('Video processing error, restarting . . .')
+                failed = true
                 i--
                 continue
             }
@@ -905,11 +932,5 @@ const testingMode = process.argv.includes('--test')
 // add subtitles to video
 // add tts
 // add song
-
-const videoDirNoMusic: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'withMusic' as string)
-const videoDirWMusic: string = path.join(__dirname as string, 'app' as string, 'output' as string, 'withoutMusic' as string)
-
-fs.emptyDirSync(videoDirNoMusic) as void
-fs.emptyDirSync(videoDirWMusic) as void
 
 main(testingMode)
