@@ -195,25 +195,35 @@ async function trimVideos(): Promise<void> {
 
 async function getVideoTheme(videos: Array<string>): Promise<Array<string>> {
     const comments: Array<string> = []
+    console.log(videos)
 
-    for (let i: number = 0; i < videos.length; i++) {
-        const video: string = videos[i]
-        const mediaInfo: ChildProcess = spawn('mediainfo', [path.join(__dirname as string, 'app' as string, 'input' as string, video as string) as string])
-        let metadata: string = ''
+    for (let i = 0; i < videos.length; i++) {
+        const video = videos[i]
+        const mediaInfo = spawn('mediainfo', [path.join(__dirname, 'app', 'input', video)])
 
-        await new Promise<void>((resolve: (value: void | PromiseLike<void>) => void) => {
-            mediaInfo.stdout!.on('data', (data: string) => {
-                metadata += data.toString() as string
-            }) as internal.Readable
+        let metadata = ''
 
-            mediaInfo.on('close' as string, () => {
-                const commentMatch: RegExpMatchArray | null = metadata.match(/Comment\s*:\s*(.*)/i)
+        await new Promise((resolve) => {
+            mediaInfo.stdout.on('data', (data) => {
+                metadata += data.toString()
+            })
+
+            mediaInfo.on('close', () => {
+                const commentMatch = metadata.match(/Comment\s*:\s*(.*)/i)
                 if (commentMatch && commentMatch[1]) {
-                    comments.push(commentMatch[1] as string) as number
+                    comments.push(commentMatch[1])
                 } else {
-                    console.log(i + ' No comment found for this video.' as string) as void
+                    console.log(`${i} No comment found for this video.`)
                 }
-                resolve() as void // Resolve the promise once comments are processed
+                resolve(true)
+            })
+
+            mediaInfo.stdout.on('error', (err) => {
+                console.error('Error in mediaInfo.stdout:', err)
+            })
+
+            mediaInfo.on('error', (err) => {
+                console.error('Error in mediaInfo:', err)
             })
         })
     }
@@ -362,7 +372,6 @@ async function createScript(video1: string, video2: string, video3: string): Pro
 }
 
 async function throwErr(reason: string) {
-    await crashManager('stop')
     console.log(`${reason}, program operation will halt`)
     process.exit()
 }
@@ -465,6 +474,7 @@ async function main(testingMode = false) {
                 await trimVideos() as void
                 console.log('✅ Trimmed all the videos') as void
             } catch {
+                await crashManager('stop')
                 await throwErr('Error trimming videos')
             }
 
@@ -523,7 +533,7 @@ async function main(testingMode = false) {
             fs.writeFileSync(path.join(__dirname, 'config', 'subtitles.srt'), generatedScript as string)
             console.log('Generated script!')
         } catch {
-            await throwErr('Error in crash manager')
+            await throwErr('Error in generating script')
         }
 
         // Concat each clip together

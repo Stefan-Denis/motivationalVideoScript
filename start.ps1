@@ -1,3 +1,8 @@
+if ($env:TERM_PROGRAM -ne "vscode") {
+    $shell = New-Object -ComObject WScript.Shell
+    $shell.SendKeys('{F11}')
+}
+
 # Clear the host
 Clear-Host
 
