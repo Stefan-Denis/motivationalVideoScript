@@ -193,44 +193,6 @@ async function trimVideos(): Promise<void> {
     await main() as void
 }
 
-async function getVideoTheme(videos: Array<string>): Promise<Array<string>> {
-    const comments: Array<string> = []
-    console.log(videos)
-
-    for (let i = 0; i < videos.length; i++) {
-        const video = videos[i]
-        const mediaInfo = spawn('mediainfo', [path.join(__dirname, 'app', 'input', video)])
-
-        let metadata = ''
-
-        await new Promise((resolve) => {
-            mediaInfo.stdout.on('data', (data) => {
-                metadata += data.toString()
-            })
-
-            mediaInfo.on('close', () => {
-                const commentMatch = metadata.match(/Comment\s*:\s*(.*)/i)
-                if (commentMatch && commentMatch[1]) {
-                    comments.push(commentMatch[1])
-                } else {
-                    console.log(`${i} No comment found for this video.`)
-                }
-                resolve(true)
-            })
-
-            mediaInfo.stdout.on('error', (err) => {
-                console.error('Error in mediaInfo.stdout:', err)
-            })
-
-            mediaInfo.on('error', (err) => {
-                console.error('Error in mediaInfo:', err)
-            })
-        })
-    }
-
-    return comments as Array<string>
-}
-
 async function createScript(video1: string, video2: string, video3: string): Promise<string> {
 
     // Previous content
@@ -485,17 +447,15 @@ async function main(testingMode = false) {
     }
 
     // Grab video theme
-    let videos: Array<string>
-    let themes: Array<string>
+    let videoThemesRaw: Array<Array<string>> = [] // Array inside an array 
 
     try {
-        videos = fs.readdirSync(path.join(__dirname as string, 'app' as string, 'input' as string) as string) as Array<string>
+        videoThemesRaw = JSON.parse(fs.readFileSync(path.join(__dirname as string, 'config', 'videoThemes.json'), 'utf-8')) as Array<Array<string>>
     } catch {
         await throwErr('Error in getting videos')
     }
 
     try {
-        themes = await getVideoTheme(videos!) as Array<string>
         console.log('✅ Theme retrieved from each video' as string) as void
     } catch {
         await throwErr('Error getting video themes')
@@ -522,14 +482,36 @@ async function main(testingMode = false) {
         console.log('\n')
         console.log(`Processing combination ${(i + 1)}:`, combinations[i])
 
-        console.log('Video theme 1:', themes![(Number(firstVideo.slice(0, -4))) - 1])
-        console.log('Video theme 2:', themes![(Number(secondVideo.slice(0, -4))) - 1])
-        console.log('Video theme 3:', themes![(Number(thirdVideo.slice(0, -4))) - 1])
+        let video1theme: string = ''
+        let video2theme: string = ''
+        let video3theme: string = ''
+
+        for (let x = 0; x < videoThemesRaw.length; x++) {
+            if (videoThemesRaw[x][0] === firstVideo) {
+                video1theme = videoThemesRaw[x][1]
+            }
+
+            else if (videoThemesRaw[x][0] === secondVideo) {
+                video2theme = videoThemesRaw[x][1]
+            }
+
+            else if (videoThemesRaw[x][0] === thirdVideo) {
+                video3theme = videoThemesRaw[x][1]
+            }
+
+            if (video1theme !== '' && video2theme !== '' && video3theme !== '') {
+                continue
+            }
+        }
+
+        console.log('Video 1 theme: ' + video1theme)
+        console.log('Video 2 theme: ' + video2theme)
+        console.log('Video 3 theme: ' + video3theme)
 
         // Create script with AI 
         try {
             console.log('Generating script...')
-            const generatedScript = await createScript(themes![(Number(firstVideo.slice(0, -4))) - 1], themes![(Number(secondVideo.slice(0, -4))) - 1], themes![(Number(thirdVideo.slice(0, -4))) - 1])
+            const generatedScript = await createScript(video1theme, video2theme, video3theme)
             fs.writeFileSync(path.join(__dirname, 'config', 'subtitles.srt'), generatedScript as string)
             console.log('Generated script!')
         } catch {
