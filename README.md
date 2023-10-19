@@ -24,7 +24,7 @@ Welcome to the Automated Content Creation App! This innovative application lever
 - 🎥 Create 9:16 720P motivational videos in minutes
 - 🤖 Utilizes GPT-3.5 Turbo 16K for intelligent content generation
 - 🔊 Harnesses Google's TTS Neural2 for natural-sounding voiceovers
-- 🧰 Employs FFmpeg and MediaInfo for advanced video processing
+- 🧰 Employs FFmpeg and a propietary system for processing video themes, for advanced video processing
 - 💼 Uses TypeScript and PowerShell at the core
 
 ## Technologies Used
@@ -32,7 +32,6 @@ Welcome to the Automated Content Creation App! This innovative application lever
 - [GPT-3.5 Turbo 16K](https://openai.com/)
 - [Google's TTS Neural2](https://cloud.google.com/text-to-speech)
 - [FFmpeg](https://ffmpeg.org/)
-- [MediaInfo](https://mediaarea.net/en/MediaInfo)
 - [TypeScript](https://www.typescriptlang.org/)
 - [PowerShell](https://docs.microsoft.com/en-us/powershell/)
 
@@ -52,7 +51,7 @@ npm install
 
 3. Set up your GPT-3.5 Turbo API key and Google TTS credentials in the configuration file.
 
-4. FFMpeg and MediaInfo come with the app by default
+4. FFMpeg comes with the app by default
 
 ## Requirements
 1. Active internet connection
@@ -69,8 +68,25 @@ Here is how to run it in a cli
 .\start.ps1
 ```
 
-To add videos for the app to use, add them inside app/input, they will be renamed by the app
-For each video, go inside properties -> details -> comments and insert the theme of the video inside the 'comments' field
+To add videos for the app to use, add them inside app/input
+For each video, use the powershell app called "setContent.ps1" to set their theme.
 
+to start it through windows terminal, do:
+```bash 
+.\setContent.ps1
+```
+
+the app can do the following:
+
+-   Show the user the themes of all the videos
+-   Edit theme of each video
+-   Re-create the video data (you must do this if you add or remove a new video)
+-   Edit comments through it.
+
+Themes and Commments explained:
+
+Themes refers to all of the video's comments.
+Comments are used to describe what is happening in a video
+Comments should be as concise as possible to explain what is going on to the AI
 
 ---
