@@ -1,11 +1,14 @@
 1
-00:00:00,000 --> 00:00:05,000
-Smart people, stop scrolling! Time to level up your game.
+00:00:00,000 --> 00:00:05,286
+Smart people, stop scrolling! 
+Discover the path to greatness. 
 
-2
+00:00:05,000 --> 00:00:09,964
 00:00:05,000 --> 00:00:10,000
-In the midst of the storm, find your inner fire to conquer.
-
+A city thriving with intelligence. 
+Become part of the elite few. 
+00:00:10,000 --> 00:00:15,141
 3
 00:00:10,000 --> 00:00:15,000
-Sweat now, shine later. It's time to build your masterpiece.
+Unlock your potential with ambition. 
+The keys to success await you.

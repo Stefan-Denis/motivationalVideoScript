@@ -75,7 +75,9 @@ async function renameScreen(themeFile: string) {
     if (askAboutChoice.choice === `Edit just a single video's comment`) {
         console.clear()
         const videoDir = path.join(__dirname as string, 'app', 'input')
-        const videos = fs.readdirSync(videoDir)
+        const videos = fs.readdirSync(videoDir).filter(file => {
+            return path.extname(file).toLowerCase() === '.mp4'
+        })
 
         const askWhichVideo = await inquirer.prompt({
             name: 'video',
@@ -115,7 +117,9 @@ async function renameScreen(themeFile: string) {
 
     else if (askAboutChoice.choice === 'Create the Video Theme data (Erases previous data)') {
         const videoDir = path.join(__dirname as string, 'app', 'input')
-        const videos = fs.readdirSync(videoDir)
+        const videos = fs.readdirSync(videoDir).filter(file => {
+            return path.extname(file).toLowerCase() === '.mp4'
+        })
 
         let data: Array<Array<string>> = []
 
