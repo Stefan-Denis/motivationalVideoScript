@@ -193,7 +193,7 @@ async function trimVideos(): Promise<void> {
     await main() as void
 }
 
-async function createScript(video1: string, video2: string, video3: string): Promise<string> {
+async function createScript(video1: string, video2: string, video3: string, apiKey: string): Promise<string> {
 
     // Previous content
     const previousScript = fs.readFileSync(path.join(__dirname, 'config', 'subtitles.srt'), 'utf8')
@@ -264,19 +264,9 @@ async function createScript(video1: string, video2: string, video3: string): Pro
 
     Things to take into account BEFORE generating anything:
         - You only have 3 subtitles to work with
-        - You only have 3 subtitles to work with
-        - You only have 3 subtitles to work with
-        - You have to manage the right amount of motivation and dopamine this video gives
-        - You have to manage the right amount of motivation and dopamine this video gives
         - You have to manage the right amount of motivation and dopamine this video gives
         - Do not use hooks in the second or last subtitle.
-        - Do not use hooks in the second or last subtitle.
-        - Do not use hooks in the second or last subtitle.
         - DO NOT SAY STUFF LIKE "embrace the storm" or "Embrace the darkness", it sounds dumb. Sound professional!!!
-        - DO NOT SAY STUFF LIKE "embrace the storm" or "Embrace the darkness", it sounds dumb. Sound professional!!!
-        - DO NOT SAY STUFF LIKE "embrace the storm" or "Embrace the darkness", it sounds dumb. Sound professional!!!
-        - IF THE VIDEO SHOWS STUFF, YOU MUST AFFIRM IT, NOT BE AGAINST IT!
-        - IF THE VIDEO SHOWS STUFF, YOU MUST AFFIRM IT, NOT BE AGAINST IT!
         - IF THE VIDEO SHOWS STUFF, YOU MUST AFFIRM IT, NOT BE AGAINST IT!
 
     You often give a very good hook in the first subtitle but after, you start writing nonsense like "chase your dreams", "seize the day", give out actual advice man, not this fairytale ting!
@@ -286,6 +276,7 @@ async function createScript(video1: string, video2: string, video3: string): Pro
 
     Here is the previous script (Only take in account the subtitles under 4 seconds):
     DO NOT COPY THE SCRIPT, THE MESSAGE GOT TO BE SOMETHING DIFFERENT1!!!!!:
+
     ${subtitles[0].index} 
     ${subtitles[0].time} 
     ${subtitles[0].text} (YOUR MESSAGE SHALL BE SOMETHING ELSE THAN THIS)
@@ -312,13 +303,32 @@ async function createScript(video1: string, video2: string, video3: string): Pro
     3
     00:00:10,000 --> 00:00:15,000
     <generate text here must be max 60 characters or 13 tokens>
+
+    ----
+    MAKE SURE YOUR SUBTITLES ARE NOT LONGER THAN 60 CHARACTERS BECAUSE IT MAKES THE MP3 OVER 5 SECONDS!!!
+    MAKE SURE YOUR SUBTITLES ARE NOT LONGER THAN 60 CHARACTERS BECAUSE IT MAKES THE MP3 OVER 5 SECONDS!!!
+
+    I WANT YOU TO DO YOUR JOB AND MAKE THE BEST SUBTITLES BECAUSE I HAVE 200 REQUESTS PER DAY ONLY, PLEASE MAKE IT THE BEST YOU CAN
+
+    Ideal length that you shall approximate your subtitles to be:
+    4.7s
+    3.9s
+    4.2s
+    3.7s
+    4.5s
+
     `
 
     const openai = new OpenAI({
-        apiKey: process.env.GPT_API_KEY as string
+        apiKey: apiKey as string
     })
 
-    console.log(prompt)
+    console.log('Request payload:', {
+        messages: [{ role: 'system', content: prompt }] as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
+        model: 'gpt-3.5-turbo-16k-0613',
+        frequency_penalty: 0.2312,
+        temperature: 0.8312
+    })
 
     const completion: ChatCompletion = await openai.chat.completions.create({
         messages: [{ role: 'system', content: prompt }] as OpenAI.Chat.Completions.ChatCompletionMessageParam[],
@@ -326,6 +336,8 @@ async function createScript(video1: string, video2: string, video3: string): Pro
         frequency_penalty: 0.2312,
         temperature: 0.8312
     })
+
+    console.log('Response:', completion)
 
     const generatedScript: string = completion.choices[0].message.content as string
 
@@ -368,6 +380,14 @@ async function getRandomSong(songs: string[]): Promise<string> {
 // has a testing mode built in
 let i: number = 0
 let failed: boolean
+
+
+const apiKey1 = process.env.GPT_API_KEY as string
+const apiKey2 = process.env.GPT_API_KEY_2 as string
+const apiKey3 = process.env.GPT_API_KEY_3 as string
+
+let currentApiKey: string = apiKey1
+
 async function main(testingMode = false) {
     // Load combinations create variables
     let combinationsPath: string = path.join(__dirname, 'config', 'combinations.json')
@@ -511,11 +531,20 @@ async function main(testingMode = false) {
         // Create script with AI 
         try {
             console.log('Generating script...')
-            const generatedScript = await createScript(video1theme, video2theme, video3theme)
+            const generatedScript = await createScript(video1theme, video2theme, video3theme, currentApiKey)
             fs.writeFileSync(path.join(__dirname, 'config', 'subtitles.srt'), generatedScript as string)
             console.log('Generated script!')
         } catch {
             await throwErr('Error in generating script')
+        } finally {
+            // Swap between API keys
+            if (currentApiKey === apiKey1) {
+                currentApiKey = apiKey2
+            } else if (currentApiKey === apiKey2) {
+                currentApiKey = apiKey3
+            } else {
+                currentApiKey = apiKey1
+            }
         }
 
         // Concat each clip together
@@ -531,6 +560,14 @@ async function main(testingMode = false) {
                         '-map', '[outv]',
                         path.join(__dirname, './app/output/temp/concatenated.mp4')
                     ])
+
+                    process.stdout.on('data', (data) => {
+                        console.log(`stdout: ${data}`)
+                    })
+
+                    process.stderr.on('data', (data) => {
+                        console.error(`stderr: ${data}`)
+                    })
 
                     process.on('close', (code) => {
                         if (code === 0) {
